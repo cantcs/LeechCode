@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32328.378
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LeechCode", "LeechCode.csproj", "{9F071CFE-C329-477C-822C-D8A41C3DCC20}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E1C9FC20-8E11-4846-9ACC-E8A9C608F9DE}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9F071CFE-C329-477C-822C-D8A41C3DCC20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F071CFE-C329-477C-822C-D8A41C3DCC20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F071CFE-C329-477C-822C-D8A41C3DCC20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F071CFE-C329-477C-822C-D8A41C3DCC20}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {992E9CF1-F77A-49A3-AC98-9807EABC711E}
+	EndGlobalSection
+EndGlobal
