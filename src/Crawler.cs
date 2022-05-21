@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Net;
+using System.Text;
 
 namespace LeechCode
 {
@@ -1063,7 +1064,12 @@ namespace LeechCode
 
 
         #region PDF Printing
-        private void SaveAsPdf(ChromeDriver driver, string filename, bool overwrite, bool launch)
+        public class PrintOptions
+        {
+            public decimal? MarginRight = null; // default (if unset) is 1cm
+            public decimal? MarginLeft = null; // default (if unset) is 1cm
+        }
+        private void SaveAsPdf(ChromeDriver driver, string filename, bool overwrite, bool launch, PrintOptions? options = null)
         {
             var dir = new FileInfo(filename).Directory;
             if (!dir.Exists)
@@ -1084,6 +1090,10 @@ namespace LeechCode
                         //{ "pageRanges", "1" }
                         {"printBackground", true},
                     };
+                    if (options != null && options.MarginRight.HasValue)
+                        printOptions["marginRight"] = options.MarginRight.Value;
+                    if (options != null && options.MarginLeft.HasValue)
+                        printOptions["marginLeft"] = options.MarginLeft.Value;
 
                     var printOutput = (Dictionary<string, object>)driver.ExecuteCdpCommand("Page.printToPDF", printOptions);
                     var pdf = Convert.FromBase64String((string)printOutput["data"]);
@@ -1109,8 +1119,159 @@ namespace LeechCode
             {
                 Debug.WriteLine(ex.ToString());
             }
+            var outerHtml = (string)driver.ExecuteScript("return document.querySelector('html').outerHTML;");
+            File.WriteAllText(filename.Substring(0, filename.Length-4) + ".htm", outerHtml);
         }
         #endregion
+
+        #region graphql
+        public class CompanyInfo
+        {
+            public string Name { get; set; }
+            public string Slug { get; set; }
+        }
+        public async Task<List<CompanyInfo>> FetchAllCompanies(ChromeHelper chromeHelper)
+        {
+            var handler = chromeHelper.CreateHttpClientHandler();
+
+            using (var httpClient = new HttpClient(handler))
+            {
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36");
+
+                var queryObject = new
+                {
+                    query = @"query questionCompanyTags { 
+                        companyTags { 
+                            name
+                            slug
+                            questionCount
+                        }
+                    }",
+                    variables = new { }
+                };
+
+                var request = new HttpRequestMessage
+                {
+                    RequestUri = new Uri("https://leetcode.com/graphql/"),
+                    Method = HttpMethod.Post,
+                    Content = new StringContent(JsonConvert.SerializeObject(queryObject), Encoding.UTF8, "application/json")
+                };
+
+                dynamic responseObj;
+
+                using (var response = await httpClient.SendAsync(request))
+                {
+                    response.EnsureSuccessStatusCode();
+
+                    var responseString = await response.Content.ReadAsStringAsync();
+                    responseObj = JsonConvert.DeserializeObject<dynamic>(responseString)!;
+                    var dyn = ((Newtonsoft.Json.Linq.JArray)responseObj.data.companyTags).ToList<dynamic>();
+                    return dyn.Select(d => new CompanyInfo() { Name = (string)d.name, Slug = (string)d.slug}).ToList();
+                }
+            }
+        }
+
+        #endregion
+
+        #region Companies
+        public void ScrapeCompanyProblems(ChromeDriver driver, string companySlug)
+        {
+            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
+
+            string url = $"https://leetcode.com/company/{companySlug}/";
+            try { driver.Manage().Window.Maximize(); } catch { driver.Manage().Window.Maximize(); }
+            try
+            {
+                driver.Navigate().GoToUrl(url);
+            }
+            catch (WebDriverException ex)
+            {
+                driver.Navigate().GoToUrl(url);
+            }
+
+            if (driver.Url.Contains("/accounts/login"))
+            {
+                _chromeHelper.LoginAndSaveCookies(driver);
+                driver.Navigate().GoToUrl(url);
+            }
+
+            wait.Until(d => d.FindElements(By.CssSelector(".table.table__XKyc")).Count > 0);
+
+
+            int CompanyPageWidth = 1200;
+            string script2 = $@"
+                var newParent = document.querySelector('.content-wrapper');
+                var content = document.querySelector('.container.grey-container__2YkQ');
+                //newParent.style.minWidth='{CompanyPageWidth}px';
+                document.querySelector('body').style.minWidth='{CompanyPageWidth}px' ;
+                //document.querySelector('body').style.padding='20px';
+                newParent.style.width='auto';
+                newParent.style.margin='20px'
+                newParent.appendChild(content);
+            ";
+            driver.ExecuteScript(script2);
+
+
+            driver.ExecuteScript("document.querySelectorAll('#navbar-root').forEach(el => el.remove());");
+            driver.ExecuteScript("document.querySelectorAll('#footer-root').forEach(el => el.remove());");
+
+            //Expand(driver, () => driver.FindElements(By.CssSelector(".reactable-th-frequency.reactable-header-sortable:not(.reactable-header-sort-desc)")).ToList(), breakIfNone: true);
+            var sort = driver.FindElement(By.CssSelector(".reactable-th-frequency.reactable-header-sortable:not(.reactable-header-sort-desc)"));
+            new Actions(driver).MoveToElement(sort).Click().Perform();
+            Thread.Sleep(1000);
+            sort = driver.FindElement(By.CssSelector(".reactable-th-frequency.reactable-header-sortable:not(.reactable-header-sort-desc)"));
+            new Actions(driver).MoveToElement(sort).Click().Perform();
+            Thread.Sleep(1000);
+
+            try { driver.Manage().Window.Size = new Size(CompanyPageWidth, driver.Manage().Window.Size.Height); } catch { }
+            var cols = driver.FindElements(By.CssSelector(".ant-col-xs-22.ant-col-md-18.ant-col-lg-16.ant-col-xl-14"));
+            foreach(var col in cols)
+            driver.ExecuteScript($@"
+                    arguments[0].classList.remove('ant-col-xs-22');
+                    arguments[0].classList.remove('ant-col-md-18');
+                    arguments[0].classList.remove('ant-col-lg-16');
+                    arguments[0].classList.remove('ant-col-xl-14');
+                    //arguments[0].style.margin='20px';
+                    ", col);
+
+            driver.ExecuteScript("document.querySelectorAll('.callout.callout-info').forEach(el => el.remove());");
+            driver.ExecuteScript("document.querySelectorAll('.solved-label__2sk4').forEach(el => el.remove());");
+            driver.ExecuteScript("document.querySelectorAll('.tags-toggl__3H2x, .flex-container__2fFG.pull-right').forEach(el => el.style.display='none');");
+            driver.ExecuteScript("document.querySelectorAll('.ant-tabs-nav-wrap').forEach(el => el.remove());");
+            driver.ExecuteScript("document.querySelectorAll('.ant-tabs.ant-tabs-top.tabs__2cWZ').forEach(el => el.remove());");
+            driver.ExecuteScript("document.querySelectorAll('.table.table__XKyc .fa.fa-check').forEach(el => el.remove());"); // questions you completed
+
+            // remove all print media queries
+            driver.ExecuteScript(@"
+                for (var j=0; j<document.styleSheets.length;j++)
+                {
+                   //if (document.styleSheets[j] instanceof CSSMediaRule) {
+                     for(var i=document.styleSheets[j].rules.length -1; i >0; i--) {
+                        if(document.styleSheets[j].rules[i].cssText.indexOf(""@media print"") !=-1)
+                        {
+                          document.styleSheets[j].deleteRule(i);
+                        }
+                     }
+                   //}
+                }
+            ");
+
+            string filename = Path.Combine(_baseFolder.FullName, $"Companies\\{companySlug}-Problems.pdf");
+            SaveAsPdf(driver, filename, true, launch: AutoLaunch, new PrintOptions() { MarginLeft = 0, MarginRight = 0});
+
+
+            driver.ExecuteScript("document.querySelectorAll('.tags-toggl__3H2x, .flex-container__2fFG.pull-right').forEach(el => el.style.display='block');");
+            var checkbox = driver.FindElement(By.CssSelector(".tags-toggl__3H2x input[type=checkbox]"));
+            new Actions(driver).MoveToElement(checkbox).Click().Perform();
+            wait.Until(d => d.FindElements(By.CssSelector("th.reactable-th-tags")).Any());
+            driver.ExecuteScript("document.querySelectorAll('.tags-toggl__3H2x, .flex-container__2fFG.pull-right').forEach(el => el.style.display='none');");
+            filename = Path.Combine(_baseFolder.FullName, $"Companies\\{companySlug}-ProblemsTags.pdf");
+            SaveAsPdf(driver, filename, true, launch: AutoLaunch, new PrintOptions() { MarginLeft = 0, MarginRight = 0 });
+
+
+        }
+        #endregion
+
 
     }
 }

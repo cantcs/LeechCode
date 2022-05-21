@@ -1,5 +1,6 @@
 ﻿using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Interactions;
 using OpenQA.Selenium.Support.UI;
 using System.Diagnostics;
 using System.Text;
@@ -84,6 +85,8 @@ namespace LeechCode
             wait.Until(d => d.FindElements(By.CssSelector("#signin_btn")).Count == 1);
             driver.FindElement(By.Name("login")).SendKeys(Options.UserName);
             driver.FindElement(By.Name("password")).SendKeys(Options.Password);
+            //var signin = driver.FindElement(By.CssSelector("#signin_btn"));
+            //new Actions(driver).MoveToElement(signin).Click().Perform();
             driver.FindElement(By.CssSelector("#signin_btn")).Click(); // Click waits for the page to finish loading before resuming code execution
             wait.Until(d => d.FindElements(By.CssSelector(".notification-btn-container__23CT")).Count == 1);
         }
@@ -134,7 +137,7 @@ namespace LeechCode
                 }
                 
                 driver.Navigate().Refresh();
-                WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
+                WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
                 wait.Until(d => d.FindElements(By.CssSelector(".account-icon__3u4B, a[href='/accounts/login/']")).Any());
                 bool loggedIn = driver.FindElements(By.CssSelector(".account-icon__3u4B")).Any();
                 bool notLoggedIn = driver.FindElements(By.CssSelector("a[href='/accounts/login/']")).Any(); // just to be sure
@@ -145,6 +148,40 @@ namespace LeechCode
                 return (true, loggedIn);
             }
         }
+
+        public HttpClientHandler CreateHttpClientHandler()
+        {
+            var handler = new HttpClientHandler();
+            if (File.Exists("Cookies.data"))
+            {
+                handler.CookieContainer = new System.Net.CookieContainer();
+                lock (_cookiesLock)
+                {
+                    var cookies = File.ReadAllLines("Cookies.data");
+                    foreach (var cookie in cookies)
+                    {
+                        var parts = cookie.Split(';');
+                        string name = parts[0];
+                        string value = parts[1];
+                        string domain = parts[2];
+                        string path = parts[3];
+                        DateTime? expiry = (string.IsNullOrEmpty(parts[4]) ? null : DateTime.Parse(parts[4]));
+                        bool isSecure = bool.Parse(parts[5]);
+                        bool isHttpOnly = bool.Parse(parts[6]);
+                        string sameSite = parts[7];
+                        //Cookie ck = new Cookie(name, value, domain.TrimStart('.'), path, expiry, isSecure, isHttpOnly, sameSite);
+                        var ck = new System.Net.Cookie(name, value, path, domain.TrimStart('.'));
+                        if (expiry.HasValue)
+                            ck.Expires = expiry.Value;
+                        ck.Secure = isSecure;
+                        ck.HttpOnly = isHttpOnly;
+                        handler.CookieContainer.Add(ck);
+                    }
+                }
+            }
+            return handler;
+        }
+
 
     }
 }

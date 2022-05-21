@@ -50,3 +50,18 @@ Parallel.ForEach(problemsToCrawl, options, (problem, state, i) =>
     orchestrator.CrawlQuestionAndSolution(problem);
 });
 /*********************************************************************************************************************************************************/
+
+
+/************************************************************/
+/****************** Crawl companies lists: ******************/
+/************************************************************/
+// crawler.AutoLaunch = true;
+//var driver = chromeHelper.CreateChromeDriver(); // log in
+//var companies = await crawler.FetchAllCompanies(chromeHelper);
+//var path = Path.Combine(baseFolder.FullName, "Companies\\Companies.json");
+//if (!new FileInfo(path).Directory.Exists) new FileInfo(path).Directory.Create();
+//File.WriteAllText(path, Newtonsoft.Json.JsonConvert.SerializeObject(companies, Newtonsoft.Json.Formatting.Indented));
+//foreach (var company in companies)
+//    crawler.ScrapeCompanyProblems(driver, company.Slug);
+// Hint: to debug Chrome elements use "chromeHelper.Options.Headless = true;" before crawling.
+/************************************************************/
